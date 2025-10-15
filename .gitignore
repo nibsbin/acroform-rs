@@ -8,3 +8,5 @@ Cargo.lock
 !.travis.yml
 
 /fonts
+
+**/.DS_Store
