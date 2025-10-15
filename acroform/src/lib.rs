@@ -1,40 +1,41 @@
 /*!
-# acroform - Minimal PDF Form Manipulation
+# acroform - PDF Form Manipulation
 
-A minimal, auditable PDF form manipulation library focusing on:
-- Reading PDF forms
-- Listing form fields
-- Updating field values
-- Saving modified PDFs
+A library for reading and filling PDF forms programmatically.
 
-## Example
+## Quick Start
 
 ```rust,no_run
 use acroform::{AcroFormDocument, FieldValue};
 use std::collections::HashMap;
 
-// Load a PDF
+// Load a PDF with a form
 let mut doc = AcroFormDocument::from_pdf("form.pdf").unwrap();
 
-// List fields
+// List all form fields
 for field in doc.fields().unwrap() {
     println!("Field: {} = {:?}", field.name, field.current_value);
 }
 
-// Fill fields
+// Fill in form fields
 let mut values = HashMap::new();
 values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
 values.insert("lastName".to_string(), FieldValue::Text("Doe".to_string()));
 
+// Save the filled form to a new file
 doc.fill_and_save(values, "filled_form.pdf").unwrap();
 ```
 
-## Design Principles
+## Working with Form Fields
 
-- **Minimal**: Only form filling, no rendering or appearance generation
-- **Auditable**: Small codebase, easy to review
-- **Standards-compliant**: Relies on PDF viewers for appearance generation via NeedAppearances flag
-- **Non-incremental**: Always writes complete PDF, not incremental updates
+This library supports the following field types:
+- **Text fields** - Use `FieldValue::Text(String)`
+- **Checkboxes** - Use `FieldValue::Boolean(bool)`
+- **Radio buttons and dropdowns** - Use `FieldValue::Choice(String)`
+- **Number fields** - Use `FieldValue::Integer(i32)`
+
+Field names are fully qualified (e.g., `"parent.child.field"`) and automatically
+resolved for you, even in forms with nested field hierarchies.
 */
 
 mod field;
