@@ -1,7 +1,7 @@
 use pdf::error::PdfError;
 use pdf::file::{CachedFile, FileOptions};
-use pdf::object::{FieldDictionary, FieldType, RcRef, Updater};
-use pdf::primitive::{Primitive, PdfString};
+use pdf::object::{FieldDictionary, FieldType, RcRef, Updater, Annot};
+use pdf::primitive::{Primitive, PdfString, Dictionary};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -93,7 +93,8 @@ impl AcroFormDocument {
         output: impl AsRef<Path>,
     ) -> Result<(), PdfError> {
         // Collect field references and their values to update
-        let mut updates: Vec<(pdf::object::PlainRef, FieldDictionary)> = Vec::new();
+        let mut field_updates: Vec<(pdf::object::PlainRef, FieldDictionary)> = Vec::new();
+        let mut annotation_updates: Vec<(pdf::object::PlainRef, Annot)> = Vec::new();
         
         {
             // Get the forms dictionary
@@ -105,19 +106,60 @@ impl AcroFormDocument {
             
             // Find fields to update
             let resolver = self.file.resolver();
-            for (name, value) in values {
+            for (name, value) in &values {
                 if let Some(field) = forms.find_field_by_name(&name, &resolver)? {
                     let field_ref = field.get_ref();
                     let mut updated_field = (*field).clone();
                     updated_field.value = value.to_primitive();
-                    updates.push((field_ref.get_inner(), updated_field));
+                    field_updates.push((field_ref.get_inner(), updated_field));
+                }
+            }
+            
+            // Also update page annotations that represent the same fields
+            for page_rc in self.file.pages() {
+                let page = page_rc?;
+                let annots = page.annotations.load(&resolver)?;
+                
+                for annot_ref in annots.data().iter() {
+                    let annot = annot_ref.data();
+                    
+                    // Check if this annotation has a field name (T key)
+                    if let Some(Primitive::String(ref field_name)) = annot.other.get("T") {
+                        let field_name_str = field_name.to_string_lossy().to_string();
+                        
+                        // Check if we're updating this field
+                        if let Some(value) = values.get(&field_name_str) {
+                            // Get the annotation reference if it's an indirect reference
+                            if let Some(annot_ref_val) = annot_ref.as_ref() {
+                                // Clone the annotation and update its value in the other dictionary
+                                let mut updated_annot = (**annot).clone();
+                                let mut new_other = Dictionary::new();
+                                
+                                // Copy all existing entries
+                                for (key, val) in &annot.other {
+                                    new_other.insert(key.clone(), val.clone());
+                                }
+                                
+                                // Update the value
+                                new_other.insert("V", value.to_primitive());
+                                updated_annot.other = new_other;
+                                
+                                annotation_updates.push((annot_ref_val.get_inner(), updated_annot));
+                            }
+                        }
+                    }
                 }
             }
         } // resolver and forms are dropped here
         
-        // Apply updates
-        for (field_ref, updated_field) in updates {
+        // Apply field updates
+        for (field_ref, updated_field) in field_updates {
             self.file.update(field_ref, updated_field)?;
+        }
+        
+        // Apply annotation updates
+        for (annot_ref, updated_annot) in annotation_updates {
+            self.file.update(annot_ref, updated_annot)?;
         }
         
         // Save the file
