@@ -1,4 +1,35 @@
-# pdf-rs [![test](https://github.com/pdf-rs/pdf/actions/workflows/test.yml/badge.svg)](https://github.com/pdf-rs/pdf/actions/workflows/test.yml) 
+# acroform-rs
+
+A minimal, auditable PDF form manipulation library forked from [pdf-rs](https://github.com/pdf-rs/pdf).
+
+This repository contains:
+- **pdf/**: Forked PDF parsing and manipulation library
+- **acroform/**: High-level form filling API (NEW)
+
+## Quick Start
+
+```rust
+use acroform::{AcroFormDocument, FieldValue};
+use std::collections::HashMap;
+
+// Load a PDF
+let mut doc = AcroFormDocument::from_pdf("form.pdf")?;
+
+// List fields
+for field in doc.fields()? {
+    println!("Field: {} = {:?}", field.name, field.current_value);
+}
+
+// Fill and save
+let mut values = HashMap::new();
+values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
+doc.fill_and_save(values, "filled_form.pdf")?;
+```
+
+See [acroform/README.md](acroform/README.md) for detailed documentation.
+
+## Original README (pdf-rs)
+
 Read, alter and write PDF files.
 
 Modifying and writing PDFs is still experimental.
