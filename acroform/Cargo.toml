@@ -1,0 +1,14 @@
+[package]
+name = "acroform"
+version = "0.1.0"
+authors = ["nibsbin"]
+edition = "2021"
+description = "Minimal, auditable PDF form manipulation library"
+license = "MIT"
+repository = "https://github.com/nibsbin/acroform-rs"
+
+[dependencies]
+pdf = { path = "../pdf", version = "0.9.0" }
+snafu = "0.8.3"
+
+[dev-dependencies]
