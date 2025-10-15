@@ -10,7 +10,6 @@ default-members = [
     "pdf",
     "pdf_derive",
     "acroform",
-    "examples"
 ]
 resolver = "2"
 
