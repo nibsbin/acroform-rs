@@ -5,3 +5,19 @@ members = [
     "examples",
     "acroform",
 ]
+
+default-members = [
+    "pdf",
+    "pdf_derive",
+    "acroform",
+    "examples"
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.0.6"
+
+[workspace.dependencies]
+acroform-pdf = { path = "pdf" , version = "0.0.6" }
+acroform-pdf-derive = { path = "pdf_derive", version = "0.0.6" }

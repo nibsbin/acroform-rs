@@ -1,12 +1,12 @@
 [package]
-name = "pdf_derive"
-version = "0.2.0"
+name = "acroform-pdf-derive"
+version.workspace = true
 authors = ["Erlend Langseth <3rlendhl@gmail.com>", "Sebastian Köln <s3bk@protonmail.com>"]
-homepage = "https://github.com/pdf-rs"
-repository = "https://github.com/pdf-rs/pdf_derive"
-description = "helper for pdf-rs."
+homepage = "https://github.com/nibsbin/acroform-rs"
+repository = "https://github.com/nibsbin/acroform-rs"
+description = "Derive macros for acroform-pdf crate (fork of pdf_derive)"
 license = "MIT"
-edition = "2018"
+edition.workspace = true
 
 [dependencies]
 syn = { version = "2", features = ["full", "extra-traits"] }
