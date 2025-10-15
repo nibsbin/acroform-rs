@@ -3,7 +3,7 @@
 #   cargo release <patch|minor|major> --execute --workspace
 
 # Only release from main
-allow-branch = ["main"]
+allow-branch = ["master"]
 
 # Bump + tag + push, but DO NOT publish here
 publish = false
