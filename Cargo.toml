@@ -3,4 +3,5 @@ members = [
     "pdf",
     "pdf_derive",
     "examples",
+    "acroform",
 ]
