@@ -64,7 +64,19 @@ impl FieldValue {
     /// This is primarily an internal method used when writing field values to PDFs.
     pub fn to_primitive(&self) -> Primitive {
         match self {
-            FieldValue::Text(s) => Primitive::String(PdfString::new(s.as_bytes().into())),
+            FieldValue::Text(s) => {
+                // Encode the string as UTF-16BE with BOM (0xFE 0xFF) per PDF spec
+                let mut v = Vec::with_capacity(2 + s.len() * 2);
+                // BOM for UTF-16BE
+                v.push(0xFE);
+                v.push(0xFF);
+                // encode_utf16 yields native u16 code units; write them as big-endian bytes
+                for cu in s.encode_utf16() {
+                    v.push((cu >> 8) as u8);
+                    v.push((cu & 0xFF) as u8);
+                }
+                Primitive::String(PdfString::new(v.into()))
+            },
             FieldValue::Integer(i) => Primitive::Integer(*i),
             FieldValue::Choice(s) => Primitive::Name(s.as_str().into()),
             FieldValue::Boolean(b) => Primitive::Boolean(*b),
