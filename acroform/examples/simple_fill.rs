@@ -10,6 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("  Name: {}", field.name);
         println!("    Type: {:?}", field.field_type);
         println!("    Value: {:?}", field.current_value);
+        println!("    Default Value: {:?}", field.default_value);
         if let Some(ref tooltip) = field.tooltip {
             println!("    Tooltip: {}", tooltip);
         }
