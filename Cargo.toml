@@ -15,8 +15,8 @@ resolver = "2"
 
 [workspace.package]
 edition = "2021"
-version = "0.0.8"
+version = "0.0.9"
 
 [workspace.dependencies]
-acroform-pdf = { path = "pdf" , version = "0.0.8" }
-acroform-pdf-derive = { path = "pdf_derive", version = "0.0.8" }
+acroform-pdf = { path = "pdf" , version = "0.0.9" }
+acroform-pdf-derive = { path = "pdf_derive", version = "0.0.9" }
