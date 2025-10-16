@@ -21,6 +21,8 @@ pub struct FormField {
     pub current_value: Option<FieldValue>,
     /// Field flags as defined in the PDF specification
     pub flags: u32,
+    /// The tooltip/alternate name of the field (TU entry in PDF specification)
+    pub tooltip: Option<String>,
 }
 
 /// Typed representation of field values
@@ -192,12 +194,14 @@ impl AcroFormDocument {
                 if let Some(field_type) = field.typ {
                     let name = field.get_full_name(&resolver)?;
                     let current_value = FieldValue::from_primitive(&field.value);
+                    let tooltip = field.alt_name.as_ref().map(|s| s.to_string_lossy().to_string());
                     
                     result.push(FormField {
                         name,
                         field_type,
                         current_value,
                         flags: field.flags,
+                        tooltip,
                     });
                 }
             }

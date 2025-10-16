@@ -170,3 +170,24 @@ fn test_round_trip_in_memory() {
         "Field value should be updated after round trip"
     );
 }
+
+#[test]
+fn test_field_tooltip_extraction() {
+    let doc = AcroFormDocument::from_pdf("../acroform_files/af8.pdf")
+        .expect("Failed to load PDF");
+    
+    let fields = doc.fields().expect("Failed to get fields");
+    
+    // Find a field that should have a tooltip
+    let field = fields.iter()
+        .find(|f| f.name == "topmostSubform[0].Page1[0].P[0].MbrName[1]")
+        .expect("Expected field not found");
+    
+    // Verify that the tooltip field is populated
+    assert!(field.tooltip.is_some(), "Expected field to have a tooltip");
+    assert_eq!(field.tooltip.as_ref().unwrap(), "MbrName");
+    
+    // Count fields with tooltips
+    let tooltip_count = fields.iter().filter(|f| f.tooltip.is_some()).count();
+    assert!(tooltip_count > 0, "Expected at least one field with a tooltip");
+}
