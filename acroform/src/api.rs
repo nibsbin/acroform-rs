@@ -8,25 +8,44 @@ use std::path::Path;
 use crate::field::{FieldDictionaryExt, InteractiveFormDictionaryExt};
 
 /// High-level representation of a form field
+///
+/// This struct contains all the information needed to understand and manipulate
+/// a PDF form field, including its name, type, current value, and flags.
 #[derive(Debug, Clone)]
 pub struct FormField {
+    /// The fully qualified name of the field (e.g., "parent.child.field")
     pub name: String,
+    /// The type of the field (e.g., Text, Button, Choice)
     pub field_type: FieldType,
+    /// The current value of the field, if any
     pub current_value: Option<FieldValue>,
+    /// Field flags as defined in the PDF specification
     pub flags: u32,
 }
 
 /// Typed representation of field values
+///
+/// This enum represents the different types of values that can be stored in PDF form fields.
+/// Each variant corresponds to a specific field type in the PDF specification.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldValue {
+    /// Text field value (used for text input fields)
     Text(String),
+    /// Boolean value (used for checkboxes and radio buttons)
     Boolean(bool),
+    /// Choice value (used for dropdown menus and radio button selections)
     Choice(String),
+    /// Integer value (used for numeric fields)
     Integer(i32),
 }
 
 impl FieldValue {
-    /// Convert a Primitive to a FieldValue
+    /// Convert a PDF Primitive to a FieldValue
+    ///
+    /// This method attempts to convert a PDF primitive value (String, Integer, Name, Boolean)
+    /// into a typed `FieldValue`. Returns `None` if the primitive type is not supported.
+    ///
+    /// This is primarily an internal method used when reading field values from PDFs.
     pub fn from_primitive(prim: &Primitive) -> Option<Self> {
         match prim {
             Primitive::String(s) => Some(FieldValue::Text(s.to_string_lossy().to_string())),
@@ -37,7 +56,12 @@ impl FieldValue {
         }
     }
     
-    /// Convert a FieldValue to a Primitive
+    /// Convert a FieldValue to a PDF Primitive
+    ///
+    /// This method converts a typed `FieldValue` into the corresponding PDF primitive
+    /// that can be written to a PDF file.
+    ///
+    /// This is primarily an internal method used when writing field values to PDFs.
     pub fn to_primitive(&self) -> Primitive {
         match self {
             FieldValue::Text(s) => Primitive::String(PdfString::new(s.as_bytes().into())),
@@ -49,18 +73,76 @@ impl FieldValue {
 }
 
 /// Main API for working with PDF forms
+///
+/// This struct provides the primary interface for loading PDF files,
+/// reading form fields, and filling form values.
+///
+/// # Examples
+///
+/// ```no_run
+/// use acroform::{AcroFormDocument, FieldValue};
+/// use std::collections::HashMap;
+///
+/// let mut doc = AcroFormDocument::from_pdf("form.pdf").unwrap();
+///
+/// // List all fields
+/// for field in doc.fields().unwrap() {
+///     println!("{}: {:?}", field.name, field.current_value);
+/// }
+///
+/// // Fill fields
+/// let mut values = HashMap::new();
+/// values.insert("name".to_string(), FieldValue::Text("John".to_string()));
+/// doc.fill_and_save(values, "filled.pdf").unwrap();
+/// ```
 pub struct AcroFormDocument {
     file: CachedFile<Vec<u8>>,
 }
 
 impl AcroFormDocument {
-    /// Load a PDF file
+    /// Load a PDF file from the given path
+    ///
+    /// Opens and parses a PDF file, preparing it for form field manipulation.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the PDF file to load
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if the file cannot be opened or parsed.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use acroform::AcroFormDocument;
+    ///
+    /// let doc = AcroFormDocument::from_pdf("form.pdf").unwrap();
+    /// ```
     pub fn from_pdf(path: impl AsRef<Path>) -> Result<Self, PdfError> {
         let file = FileOptions::cached().open(path)?;
         Ok(AcroFormDocument { file })
     }
     
-    /// Get all form fields
+    /// Get all form fields in the PDF
+    ///
+    /// Returns a vector of all fillable form fields in the document.
+    /// Each field includes its name, type, current value, and flags.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if field information cannot be retrieved from the PDF.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use acroform::AcroFormDocument;
+    ///
+    /// let doc = AcroFormDocument::from_pdf("form.pdf").unwrap();
+    /// for field in doc.fields().unwrap() {
+    ///     println!("Field: {} (type: {:?})", field.name, field.field_type);
+    /// }
+    /// ```
     pub fn fields(&self) -> Result<Vec<FormField>, PdfError> {
         let mut result = Vec::new();
         
@@ -86,7 +168,35 @@ impl AcroFormDocument {
         Ok(result)
     }
     
-    /// Fill fields and save to a new file
+    /// Fill form fields with provided values and save to a new file
+    ///
+    /// Updates the specified form fields with new values and writes the modified
+    /// PDF to the output path. Fields not specified in the `values` map remain unchanged.
+    ///
+    /// # Arguments
+    ///
+    /// * `values` - A map from field names to their new values
+    /// * `output` - Path where the filled PDF should be saved
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if:
+    /// - The PDF does not contain an AcroForm dictionary
+    /// - Field updates cannot be applied
+    /// - The file cannot be written to the output path
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use acroform::{AcroFormDocument, FieldValue};
+    /// use std::collections::HashMap;
+    ///
+    /// let mut doc = AcroFormDocument::from_pdf("form.pdf").unwrap();
+    /// let mut values = HashMap::new();
+    /// values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
+    /// values.insert("lastName".to_string(), FieldValue::Text("Doe".to_string()));
+    /// doc.fill_and_save(values, "filled_form.pdf").unwrap();
+    /// ```
     pub fn fill_and_save(
         &mut self,
         values: HashMap<String, FieldValue>,
