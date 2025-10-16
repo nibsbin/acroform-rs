@@ -191,3 +191,26 @@ fn test_field_tooltip_extraction() {
     let tooltip_count = fields.iter().filter(|f| f.tooltip.is_some()).count();
     assert!(tooltip_count > 0, "Expected at least one field with a tooltip");
 }
+
+#[test]
+fn test_field_default_value_extraction() {
+    let doc = AcroFormDocument::from_pdf("../acroform_files/af8.pdf")
+        .expect("Failed to load PDF");
+    
+    let fields = doc.fields().expect("Failed to get fields");
+    
+    // Verify that all fields have the default_value field available
+    // (it may be None if no default value is set in the PDF)
+    for field in &fields {
+        // The default_value field should be accessible whether it's Some or None
+        let _ = &field.default_value;
+    }
+    
+    // Check that we can find a field by name and access its default_value
+    if let Some(field) = fields.iter()
+        .find(|f| f.name == "topmostSubform[0].Page1[0].P[0].MbrName[1]") {
+        // The field should have a default_value field (may be Some or None)
+        // This test primarily verifies the field is accessible
+        let _default = &field.default_value;
+    }
+}

@@ -19,6 +19,8 @@ pub struct FormField {
     pub field_type: FieldType,
     /// The current value of the field, if any
     pub current_value: Option<FieldValue>,
+    /// The default value of the field (DV entry in PDF specification), if any
+    pub default_value: Option<FieldValue>,
     /// Field flags as defined in the PDF specification
     pub flags: u32,
     /// The tooltip/alternate name of the field (TU entry in PDF specification)
@@ -194,12 +196,14 @@ impl AcroFormDocument {
                 if let Some(field_type) = field.typ {
                     let name = field.get_full_name(&resolver)?;
                     let current_value = FieldValue::from_primitive(&field.value);
+                    let default_value = FieldValue::from_primitive(&field.default_value);
                     let tooltip = field.alt_name.as_ref().map(|s| s.to_string_lossy().to_string());
                     
                     result.push(FormField {
                         name,
                         field_type,
                         current_value,
+                        default_value,
                         flags: field.flags,
                         tooltip,
                     });
