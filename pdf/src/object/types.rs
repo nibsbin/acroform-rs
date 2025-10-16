@@ -1037,13 +1037,13 @@ pub struct FieldDictionary {
 #[derive(Object, ObjectWrite, Debug, DataSize, Clone, DeepClone)]
 pub struct AppearanceStreams {
     #[pdf(key="N")]
-    pub normal: Ref<AppearanceStreamEntry>,
+    pub normal: MaybeRef<AppearanceStreamEntry>,
 
     #[pdf(key="R")]
-    pub rollover: Option<Ref<AppearanceStreamEntry>>,
+    pub rollover: Option<MaybeRef<AppearanceStreamEntry>>,
 
     #[pdf(key="D")]
-    pub down: Option<Ref<AppearanceStreamEntry>>,
+    pub down: Option<MaybeRef<AppearanceStreamEntry>>,
 }
 
 #[derive(Clone, Debug, DeepClone)]
