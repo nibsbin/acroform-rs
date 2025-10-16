@@ -8,6 +8,8 @@ This repository contains:
 
 ## Quick Start
 
+### File-based API
+
 ```rust
 use acroform::{AcroFormDocument, FieldValue};
 use std::collections::HashMap;
@@ -24,6 +26,28 @@ for field in doc.fields()? {
 let mut values = HashMap::new();
 values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
 doc.fill_and_save(values, "filled_form.pdf")?;
+```
+
+### In-Memory API (NEW!)
+
+The high-level API now performs all operations in-memory, returning byte vectors instead of writing to disk:
+
+```rust
+use acroform::{AcroFormDocument, FieldValue};
+use std::collections::HashMap;
+
+// Load from bytes
+let pdf_data = std::fs::read("form.pdf")?;
+let mut doc = AcroFormDocument::from_bytes(pdf_data)?;
+
+// Fill fields and get result as bytes (no disk I/O!)
+let mut values = HashMap::new();
+values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
+let filled_pdf_bytes = doc.fill(values)?;
+
+// Use the bytes directly (e.g., send over HTTP, store in database, etc.)
+// Or write to disk if needed
+std::fs::write("filled_form.pdf", filled_pdf_bytes)?;
 ```
 
 See [acroform/README.md](acroform/README.md) for detailed documentation.

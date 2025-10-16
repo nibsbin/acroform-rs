@@ -2,11 +2,36 @@ use pdf::error::PdfError;
 use pdf::object::{FieldDictionary, InteractiveFormDictionary, Resolve, RcRef};
 
 /// Extension trait to add traversal functionality to FieldDictionary
+///
+/// This trait provides additional methods for working with PDF form field dictionaries,
+/// including traversing field hierarchies and obtaining fully qualified field names.
 pub trait FieldDictionaryExt {
     /// Get the full name of this field by concatenating parent /T values
+    ///
+    /// PDF forms can have hierarchical field structures. This method walks up the
+    /// parent chain and concatenates all field names with dots (e.g., "parent.child.field").
+    ///
+    /// # Arguments
+    ///
+    /// * `resolver` - A resolver for looking up indirect PDF objects
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if parent references cannot be resolved.
     fn get_full_name(&self, resolver: &impl Resolve) -> Result<String, PdfError>;
     
     /// Recursively traverse all child fields and return their references
+    ///
+    /// This method recursively walks through all children of this field dictionary,
+    /// collecting references to all terminal (leaf) fields that have a type.
+    ///
+    /// # Arguments
+    ///
+    /// * `resolver` - A resolver for looking up indirect PDF objects
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if field references cannot be resolved.
     fn traverse_field_refs(&self, resolver: &impl Resolve) -> Result<Vec<RcRef<FieldDictionary>>, PdfError>;
 }
 
@@ -60,11 +85,42 @@ impl FieldDictionaryExt for FieldDictionary {
 }
 
 /// Extension trait to add traversal functionality to InteractiveFormDictionary
+///
+/// This trait provides methods for working with the PDF's AcroForm (interactive form)
+/// dictionary, including listing all fields and finding fields by name.
 pub trait InteractiveFormDictionaryExt {
     /// Get all terminal fields in the form (flattened)
+    ///
+    /// Returns a flat list of all terminal (leaf) fields in the form, regardless of
+    /// their position in the field hierarchy. Terminal fields are those that have a
+    /// field type and can be filled.
+    ///
+    /// # Arguments
+    ///
+    /// * `resolver` - A resolver for looking up indirect PDF objects
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if field references cannot be resolved.
     fn all_fields(&self, resolver: &impl Resolve) -> Result<Vec<RcRef<FieldDictionary>>, PdfError>;
     
     /// Find a field by its full name
+    ///
+    /// Searches through all fields in the form and returns the field with the
+    /// matching fully qualified name (e.g., "parent.child.field").
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The fully qualified name of the field to find
+    /// * `resolver` - A resolver for looking up indirect PDF objects
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Some(field))` if found, `Ok(None)` if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if field references cannot be resolved.
     fn find_field_by_name(&self, name: &str, resolver: &impl Resolve) -> Result<Option<RcRef<FieldDictionary>>, PdfError>;
 }
 
