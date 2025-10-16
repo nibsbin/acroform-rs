@@ -5,6 +5,8 @@ A library for reading and filling PDF forms programmatically.
 
 ## Quick Start
 
+### File-based API
+
 ```rust,no_run
 use acroform::{AcroFormDocument, FieldValue};
 use std::collections::HashMap;
@@ -17,13 +19,32 @@ for field in doc.fields().unwrap() {
     println!("Field: {} = {:?}", field.name, field.current_value);
 }
 
-// Fill in form fields
+// Fill in form fields and save to disk
 let mut values = HashMap::new();
 values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
 values.insert("lastName".to_string(), FieldValue::Text("Doe".to_string()));
-
-// Save the filled form to a new file
 doc.fill_and_save(values, "filled_form.pdf").unwrap();
+```
+
+### In-Memory API
+
+All operations can be performed in-memory without disk I/O:
+
+```rust,no_run
+use acroform::{AcroFormDocument, FieldValue};
+use std::collections::HashMap;
+
+// Load from bytes
+let pdf_data = std::fs::read("form.pdf").unwrap();
+let mut doc = AcroFormDocument::from_bytes(pdf_data).unwrap();
+
+// Fill fields and get result as bytes (no disk I/O!)
+let mut values = HashMap::new();
+values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
+values.insert("lastName".to_string(), FieldValue::Text("Doe".to_string()));
+let filled_pdf_bytes = doc.fill(values).unwrap();
+
+// Now you can send filled_pdf_bytes over HTTP, store in a database, etc.
 ```
 
 ## Working with Form Fields

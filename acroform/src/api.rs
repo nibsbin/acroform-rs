@@ -124,6 +124,32 @@ impl AcroFormDocument {
         Ok(AcroFormDocument { file })
     }
     
+    /// Load a PDF from a byte vector
+    ///
+    /// Parses a PDF from an in-memory byte vector, preparing it for form field manipulation.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - A byte vector containing the PDF data
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if the data cannot be parsed as a valid PDF.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use acroform::AcroFormDocument;
+    /// use std::fs;
+    ///
+    /// let data = fs::read("form.pdf").unwrap();
+    /// let doc = AcroFormDocument::from_bytes(data).unwrap();
+    /// ```
+    pub fn from_bytes(data: Vec<u8>) -> Result<Self, PdfError> {
+        let file = FileOptions::cached().load(data)?;
+        Ok(AcroFormDocument { file })
+    }
+    
     /// Get all form fields in the PDF
     ///
     /// Returns a vector of all fillable form fields in the document.
@@ -168,22 +194,24 @@ impl AcroFormDocument {
         Ok(result)
     }
     
-    /// Fill form fields with provided values and save to a new file
+    /// Fill form fields with provided values and return the PDF as a byte vector
     ///
-    /// Updates the specified form fields with new values and writes the modified
-    /// PDF to the output path. Fields not specified in the `values` map remain unchanged.
+    /// Updates the specified form fields with new values and returns the modified
+    /// PDF as an in-memory byte vector. Fields not specified in the `values` map remain unchanged.
+    ///
+    /// This method performs all operations in-memory without writing to disk,
+    /// making it suitable for web services, stream processing, or other scenarios
+    /// where disk I/O should be avoided.
     ///
     /// # Arguments
     ///
     /// * `values` - A map from field names to their new values
-    /// * `output` - Path where the filled PDF should be saved
     ///
     /// # Errors
     ///
     /// Returns `PdfError` if:
     /// - The PDF does not contain an AcroForm dictionary
     /// - Field updates cannot be applied
-    /// - The file cannot be written to the output path
     ///
     /// # Examples
     ///
@@ -195,13 +223,13 @@ impl AcroFormDocument {
     /// let mut values = HashMap::new();
     /// values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
     /// values.insert("lastName".to_string(), FieldValue::Text("Doe".to_string()));
-    /// doc.fill_and_save(values, "filled_form.pdf").unwrap();
+    /// let filled_pdf = doc.fill(values).unwrap();
+    /// // Now you can send `filled_pdf` over HTTP, store it in a database, etc.
     /// ```
-    pub fn fill_and_save(
+    pub fn fill(
         &mut self,
         values: HashMap<String, FieldValue>,
-        output: impl AsRef<Path>,
-    ) -> Result<(), PdfError> {
+    ) -> Result<Vec<u8>, PdfError> {
         // Collect field references and their values to update
         let mut field_updates: Vec<(pdf::object::PlainRef, FieldDictionary)> = Vec::new();
         let mut annotation_updates: Vec<(pdf::object::PlainRef, Annot)> = Vec::new();
@@ -272,9 +300,49 @@ impl AcroFormDocument {
             self.file.update(annot_ref, updated_annot)?;
         }
         
-        // Save the file
-        self.file.save_to(output)?;
-        
+        // Return the file as bytes instead of saving to disk
+        Ok(self.file.save()?)
+    }
+    
+    /// Fill form fields with provided values and save to a new file
+    ///
+    /// Updates the specified form fields with new values and writes the modified
+    /// PDF to the output path. Fields not specified in the `values` map remain unchanged.
+    ///
+    /// This is a convenience method that combines `fill()` with writing to disk.
+    /// For in-memory operations, use `fill()` directly.
+    ///
+    /// # Arguments
+    ///
+    /// * `values` - A map from field names to their new values
+    /// * `output` - Path where the filled PDF should be saved
+    ///
+    /// # Errors
+    ///
+    /// Returns `PdfError` if:
+    /// - The PDF does not contain an AcroForm dictionary
+    /// - Field updates cannot be applied
+    /// - The file cannot be written to the output path
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use acroform::{AcroFormDocument, FieldValue};
+    /// use std::collections::HashMap;
+    ///
+    /// let mut doc = AcroFormDocument::from_pdf("form.pdf").unwrap();
+    /// let mut values = HashMap::new();
+    /// values.insert("firstName".to_string(), FieldValue::Text("John".to_string()));
+    /// values.insert("lastName".to_string(), FieldValue::Text("Doe".to_string()));
+    /// doc.fill_and_save(values, "filled_form.pdf").unwrap();
+    /// ```
+    pub fn fill_and_save(
+        &mut self,
+        values: HashMap<String, FieldValue>,
+        output: impl AsRef<Path>,
+    ) -> Result<(), PdfError> {
+        let bytes = self.fill(values)?;
+        std::fs::write(output, bytes)?;
         Ok(())
     }
 }
