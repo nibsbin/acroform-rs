@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load the test PDF
-    let mut doc = AcroFormDocument::from_pdf("acroform_files/af8.pdf")?;
+    let mut doc = AcroFormDocument::from_pdf("acroform_files/af8_error.pdf")?;
     
     println!("Fields in the PDF:");
     for field in doc.fields()? {
