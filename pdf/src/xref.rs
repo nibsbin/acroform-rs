@@ -136,7 +136,8 @@ impl XRefTable {
                 XRef::Free { next_obj_nr, gen_nr } => (0, next_obj_nr, gen_nr),
                 XRef::Raw { pos, gen_nr } => (1, pos as u64, gen_nr),
                 XRef::Stream { stream_id, index } => (2, stream_id, index as u64),
-                x => bail!("invalid xref entry: {:?}", x)
+                // Treat Invalid and Promised entries as free entries
+                XRef::Invalid | XRef::Promised => (0, 0, 0),
             };
             data.push(t);
             data.extend_from_slice(&a.to_be_bytes()[8 - a_w ..]);
