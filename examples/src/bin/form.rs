@@ -46,32 +46,31 @@ fn run() -> Result<(), PdfError> {
     let annots = page0.annotations.load(&file.resolver()).expect("can't load annotations");
     for annot in &*annots {
         if let Some(ref a) = annot.appearance_streams {
-            let normal = file.resolver().get(a.normal);
-            if let Ok(normal) = normal {
-                match *normal {
-                    AppearanceStreamEntry::Single(ref s) => {
-                        //dbg!(&s.stream.resources);
-                        
-                        let form_dict = FormDict {
-                            resources: Some(resources.clone().into()),
-                            .. (**s.stream).clone()
-                        };
+            match **a.normal {
+                AppearanceStreamEntry::Single(ref s) => {
+                    //dbg!(&s.stream.resources);
+                    
+                    let form_dict = FormDict {
+                        resources: Some(resources.clone().into()),
+                        .. (**s.stream).clone()
+                    };
 
-                        let ops = vec![
-                            Op::Save,
-                            Op::TextFont { name: font_name.clone(), size: 14.0 },
-                            Op::TextDraw { text: PdfString::from("Hello World!") },
-                            Op::EndText,
-                            Op::Restore
-                        ];
-                        let stream = Stream::new(form_dict, serialize_ops(&ops)?);
+                    let ops = vec![
+                        Op::Save,
+                        Op::TextFont { name: font_name.clone(), size: 14.0 },
+                        Op::TextDraw { text: PdfString::from("Hello World!") },
+                        Op::EndText,
+                        Op::Restore
+                    ];
+                    let stream = Stream::new(form_dict, serialize_ops(&ops)?);
 
-                        let normal2 = AppearanceStreamEntry::Single(FormXObject { stream });
+                    let normal2 = AppearanceStreamEntry::Single(FormXObject { stream });
 
-                        file.update(a.normal.get_inner(), normal2)?;
+                    if let Some(normal_ref) = a.normal.as_ref() {
+                        file.update(normal_ref.get_inner(), normal2)?;
                     }
-                    _ => {}
                 }
+                _ => {}
             }
         }
     }

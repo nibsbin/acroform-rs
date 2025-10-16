@@ -1034,18 +1034,29 @@ pub struct FieldDictionary {
     pub other: Dictionary
 }
 
+/// Appearance streams for annotations.
+/// 
+/// According to PDF specification, appearance stream dictionaries can be either:
+/// - Direct objects (embedded in the annotation dictionary)
+/// - Indirect objects (referenced via object reference)
+/// 
+/// The `MaybeRef` type allows handling both cases. This is consistent with
+/// how the PDF specification defines appearance dictionaries in section 12.5.5.
 #[derive(Object, ObjectWrite, Debug, DataSize, Clone, DeepClone)]
 pub struct AppearanceStreams {
     #[pdf(key="N")]
-    pub normal: Ref<AppearanceStreamEntry>,
+    pub normal: MaybeRef<AppearanceStreamEntry>,
 
     #[pdf(key="R")]
-    pub rollover: Option<Ref<AppearanceStreamEntry>>,
+    pub rollover: Option<MaybeRef<AppearanceStreamEntry>>,
 
     #[pdf(key="D")]
-    pub down: Option<Ref<AppearanceStreamEntry>>,
+    pub down: Option<MaybeRef<AppearanceStreamEntry>>,
 }
 
+/// An appearance stream entry can be either:
+/// - A single form XObject (stream), or
+/// - A dictionary of named appearance streams (for widgets with multiple appearance states)
 #[derive(Clone, Debug, DeepClone)]
 pub enum AppearanceStreamEntry {
     Single(FormXObject),
