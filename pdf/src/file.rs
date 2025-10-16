@@ -516,6 +516,10 @@ where
         std::fs::write(path, self.storage.save(&mut self.trailer)?)?;
         Ok(())
     }
+    
+    pub fn save(&mut self) -> Result<Vec<u8>> {
+        Ok(self.storage.save(&mut self.trailer)?.to_vec())
+    }
 }
 
 
