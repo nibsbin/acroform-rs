@@ -19,6 +19,7 @@ pub mod font;
 pub mod any;
 pub mod encoding;
 pub mod build;
+pub mod pdfdocencoding;
 
 // mod content;
 pub mod enc;

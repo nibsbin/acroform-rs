@@ -170,3 +170,56 @@ fn test_round_trip_in_memory() {
         "Field value should be updated after round trip"
     );
 }
+
+#[test]
+fn test_unicode_characters_in_form_fields() {
+    // Test that Unicode characters (smart quotes, accented characters, etc.) 
+    // are correctly encoded when filling form fields
+    let mut doc = AcroFormDocument::from_pdf("../acroform_files/af8.pdf")
+        .expect("Failed to load PDF");
+    
+    // Test various Unicode characters that should be handled by PDFDocEncoding
+    let test_values = vec![
+        ("Smart quotes", "\u{201C}Hello\u{201D}"),  // Left and right double quotes
+        ("Single quotes", "\u{2018}test\u{2019}"),   // Left and right single quotes
+        ("Em dash", "test\u{2014}dash"),             // Em dash
+        ("En dash", "test\u{2013}dash"),             // En dash
+        ("Accented", "caf\u{00E9}"),                 // Café with accented e
+        ("Trademark", "Test\u{2122}"),               // Trademark symbol
+        ("Copyright", "\u{00A9}2024"),               // Copyright symbol
+    ];
+    
+    for (description, value) in test_values {
+        let mut values = HashMap::new();
+        values.insert(
+            "topmostSubform[0].Page1[0].P[0].MbrName[1]".to_string(),
+            FieldValue::Text(value.to_string()),
+        );
+        
+        // Fill the form
+        let filled_bytes = doc.fill(values)
+            .expect(&format!("Failed to fill PDF with {}", description));
+        
+        // Verify we got bytes back
+        assert!(!filled_bytes.is_empty(), "Expected non-empty PDF bytes for {}", description);
+        
+        // Load the filled PDF and verify the value
+        let doc2 = AcroFormDocument::from_bytes(filled_bytes)
+            .expect(&format!("Failed to load filled PDF for {}", description));
+        
+        let fields2 = doc2.fields().expect("Failed to get fields");
+        let updated_field = fields2.iter()
+            .find(|f| f.name == "topmostSubform[0].Page1[0].P[0].MbrName[1]")
+            .expect(&format!("Field not found after update for {}", description));
+        
+        // The value should match what we put in
+        assert_eq!(
+            updated_field.current_value,
+            Some(FieldValue::Text(value.to_string())),
+            "Field value mismatch for {}. Expected '{}', got '{:?}'",
+            description,
+            value,
+            updated_field.current_value
+        );
+    }
+}

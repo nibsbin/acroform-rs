@@ -2,6 +2,7 @@ use pdf::error::PdfError;
 use pdf::file::{CachedFile, FileOptions};
 use pdf::object::{FieldDictionary, FieldType, RcRef, Updater, Annot};
 use pdf::primitive::{Primitive, PdfString, Dictionary};
+use pdf::pdfdocencoding::utf8_to_pdf_string_bytes;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -61,10 +62,14 @@ impl FieldValue {
     /// This method converts a typed `FieldValue` into the corresponding PDF primitive
     /// that can be written to a PDF file.
     ///
+    /// Text values are encoded using PDFDocEncoding when possible (for ASCII and common
+    /// special characters like smart quotes), or UTF-16BE with BOM for characters outside
+    /// PDFDocEncoding's range.
+    ///
     /// This is primarily an internal method used when writing field values to PDFs.
     pub fn to_primitive(&self) -> Primitive {
         match self {
-            FieldValue::Text(s) => Primitive::String(PdfString::new(s.as_bytes().into())),
+            FieldValue::Text(s) => Primitive::String(PdfString::new(utf8_to_pdf_string_bytes(s).into())),
             FieldValue::Integer(i) => Primitive::Integer(*i),
             FieldValue::Choice(s) => Primitive::Name(s.as_str().into()),
             FieldValue::Boolean(b) => Primitive::Boolean(*b),

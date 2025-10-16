@@ -461,25 +461,14 @@ impl PdfString {
     /// For decoding correctly see
     /// pdf_tools/src/lib.rs
     pub fn to_string_lossy(&self) -> String {
-        if self.data.starts_with(&[0xfe, 0xff]) {
-            crate::font::utf16be_to_string_lossy(&self.data[2..])
-        }
-        else {
-            String::from_utf8_lossy(&self.data).into()
-        }
+        crate::pdfdocencoding::pdf_string_bytes_to_utf8(&self.data)
     }
     /// without encoding information the PdfString cannot be sensibly decoded into a String
     /// converts to a Rust String but only works for valid UTF-8, UTF-16BE and ASCII characters
     /// if invalid bytes found an Error is returned
     pub fn to_string(&self) -> Result<String> {
-        if self.data.starts_with(&[0xfe, 0xff]) {
-            Ok(String::from(std::str::from_utf8(crate::font::utf16be_to_string(&self.data[2..])?.as_bytes())
-                .map_err(|_| PdfError::Utf8Decode)?))
-        }
-        else {
-            Ok(String::from(std::str::from_utf8(&self.data)
-                .map_err(|_| PdfError::Utf8Decode)?))
-        }
+        crate::pdfdocencoding::pdf_string_bytes_to_utf8_strict(&self.data)
+            .map_err(|_| PdfError::Utf8Decode)
     }
 }
 impl<'a> From<&'a str> for PdfString {
@@ -869,11 +858,11 @@ mod tests {
         let s = PdfString::new([b'm', b'i', b't', 0xc3, 0xa4 /*ä*/].as_slice().into());
         assert_eq!(s.to_string_lossy(), "mitä");
         assert_eq!(s.to_string().unwrap(), "mitä");
-        // verify valid ISO-8859-1 bytestream with umlaut fails
-        let s = PdfString::new([b'm', b'i', b't', 0xe4/*ä in latin1*/].as_slice().into());
-        let repl_ch = ['m', 'i', 't', std::char::REPLACEMENT_CHARACTER].iter().collect::<String>();
-        assert_eq!(s.to_string_lossy(), repl_ch);
-        assert!(s.to_string().is_err()); // FIXME verify it is a PdfError::Utf16Decode
+        // verify PDFDocEncoding byte 0xe4 (which is ä in both Latin-1 and PDFDocEncoding) decodes correctly
+        let s = PdfString::new([b'm', b'i', b't', 0xe4/*ä in both latin1 and PDFDocEncoding*/].as_slice().into());
+        // PDFDocEncoding byte 0xe4 (228) maps to U+00E4 which is ä
+        assert_eq!(s.to_string_lossy(), "mitä");
+        assert_eq!(s.to_string().unwrap(), "mitä");
     }
 
     #[test]
