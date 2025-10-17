@@ -20,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Update the field value
     let mut values = HashMap::new();
     values.insert(
-        "topmostSubform[0].Page1[0].P[0].MbrName[1]".to_string(),
+        "P[0].Page1[0].topmostSubform[0].MbrName[1]".to_string(),
         FieldValue::Text("NEW_VALUE".to_string()),
     );
     
