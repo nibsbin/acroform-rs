@@ -214,3 +214,71 @@ fn test_field_default_value_extraction() {
         let _default = &field.default_value;
     }
 }
+
+#[test]
+fn test_need_appearances_flag_and_appearance_streams() {
+    use pdf::file::FileOptions;
+    
+    let mut doc = AcroFormDocument::from_pdf("../acroform_files/af8_error.pdf")
+        .expect("Failed to load PDF");
+    
+    // Update a field
+    let mut values = HashMap::new();
+    values.insert(
+        "P[0].Page1[0].topmostSubform[0].MbrName[1]".to_string(),
+        FieldValue::Text("NEW_VALUE".to_string()),
+    );
+    
+    // Fill and save
+    doc.fill_and_save(values, "/tmp/test_need_appearances.pdf")
+        .expect("Failed to save PDF");
+    
+    // Load the filled PDF using the low-level API to check the flags
+    let file = FileOptions::cached().open("/tmp/test_need_appearances.pdf")
+        .expect("Failed to load filled PDF");
+    
+    // Verify Option 1: NeedAppearances flag is set to true
+    if let Some(ref forms) = file.get_root().forms {
+        assert!(
+            forms.need_appearences,
+            "NeedAppearances flag should be set to true"
+        );
+    } else {
+        panic!("No AcroForm dictionary found");
+    }
+    
+    // Verify Option 2: Appearance streams are removed
+    let resolver = file.resolver();
+    let mut found_updated_field = false;
+    
+    for page_rc in file.pages() {
+        let page = page_rc.expect("Failed to get page");
+        let annots = page.annotations.load(&resolver).expect("Failed to load annotations");
+        
+        for annot_ref in annots.data().iter() {
+            let annot = annot_ref.data();
+            
+            // Check if this is the MbrName[1] field
+            if let Some(pdf::primitive::Primitive::String(ref field_name)) = annot.other.get("T") {
+                let field_name_str = field_name.to_string_lossy().to_string();
+                
+                if field_name_str == "MbrName[1]" {
+                    found_updated_field = true;
+                    
+                    // Verify appearance streams were removed
+                    assert!(
+                        annot.appearance_streams.is_none(),
+                        "Appearance streams should be removed from updated annotations"
+                    );
+                    break;
+                }
+            }
+        }
+        
+        if found_updated_field {
+            break;
+        }
+    }
+    
+    assert!(found_updated_field, "Should have found the updated field");
+}

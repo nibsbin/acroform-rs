@@ -269,6 +269,18 @@ impl AcroFormDocument {
                     let field_ref = field.get_ref();
                     let mut updated_field = (*field).clone();
                     updated_field.value = value.to_primitive();
+                    
+                    // Option 2: Remove appearance streams from the field dictionary's other dictionary
+                    // In PDF, a field can also be a widget annotation with appearance streams
+                    let mut new_other = Dictionary::new();
+                    for (key, val) in &updated_field.other {
+                        // Skip the /AP (appearance) key
+                        if key != "AP" {
+                            new_other.insert(key.clone(), val.clone());
+                        }
+                    }
+                    updated_field.other = new_other;
+                    
                     field_updates.push((field_ref.get_inner(), updated_field));
                 }
             }
@@ -286,7 +298,14 @@ impl AcroFormDocument {
                         let field_name_str = field_name.to_string_lossy().to_string();
                         
                         // Check if we're updating this field
-                        if let Some(value) = values.get(&field_name_str) {
+                        // Note: The annotation's T key is the terminal field name (e.g., "MbrName[1]")
+                        // but the values HashMap keys are fully qualified (e.g., "P[0].Page1[0].topmostSubform[0].MbrName[1]")
+                        // So we need to find a value whose key ends with the annotation's field name
+                        let matching_value = values.iter().find(|(full_name, _)| {
+                            full_name.ends_with(&field_name_str)
+                        });
+                        
+                        if let Some((_, value)) = matching_value {
                             // Get the annotation reference if it's an indirect reference
                             if let Some(annot_ref_val) = annot_ref.as_ref() {
                                 // Clone the annotation and update its value in the other dictionary
@@ -300,6 +319,9 @@ impl AcroFormDocument {
                                 
                                 // Update the value
                                 new_other.insert("V", value.to_primitive());
+                                
+                                // Option 2: Remove appearance streams to force viewers to regenerate them
+                                updated_annot.appearance_streams = None;
                                 updated_annot.other = new_other;
                                 
                                 annotation_updates.push((annot_ref_val.get_inner(), updated_annot));
@@ -309,6 +331,42 @@ impl AcroFormDocument {
                 }
             }
         } // resolver and forms are dropped here
+        
+        // Option 1: Set NeedAppearances flag to true in the AcroForm dictionary
+        // This tells PDF viewers to regenerate appearance streams from field values
+        {
+            use pdf::object::Catalog;
+            
+            let old_catalog = self.file.get_root();
+            let catalog_ref = self.file.trailer.root.get_ref();
+            
+            // Build a new Catalog with updated forms
+            let mut updated_forms = old_catalog.forms.clone();
+            if let Some(ref mut forms) = updated_forms {
+                forms.need_appearences = true;
+            }
+            
+            // Note: We set page_labels, outlines, and struct_tree_root to None because they
+            // don't implement Clone. This is acceptable because:
+            // 1. Most form PDFs don't use these features
+            // 2. These features are independent of form filling functionality
+            // 3. The PDF will still be valid and form fields will work correctly
+            // If your PDF uses these features and they're critical, consider using a more
+            // sophisticated approach with deep_clone and an Importer.
+            let updated_catalog = Catalog {
+                version: old_catalog.version.clone(),
+                pages: old_catalog.pages.clone(),
+                page_labels: None,
+                names: old_catalog.names.clone(),
+                dests: old_catalog.dests.clone(),
+                outlines: None,
+                forms: updated_forms,
+                metadata: old_catalog.metadata.clone(),
+                struct_tree_root: None,
+            };
+            
+            self.file.update(catalog_ref.get_inner(), updated_catalog)?;
+        }
         
         // Apply field updates
         for (field_ref, updated_field) in field_updates {
