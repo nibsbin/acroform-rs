@@ -300,6 +300,9 @@ impl AcroFormDocument {
                                 
                                 // Update the value
                                 new_other.insert("V", value.to_primitive());
+                                
+                                // Option 2: Remove appearance streams to force viewers to regenerate them
+                                updated_annot.appearance_streams = None;
                                 updated_annot.other = new_other;
                                 
                                 annotation_updates.push((annot_ref_val.get_inner(), updated_annot));
@@ -309,6 +312,35 @@ impl AcroFormDocument {
                 }
             }
         } // resolver and forms are dropped here
+        
+        // Option 1: Set NeedAppearances flag to true in the AcroForm dictionary
+        // This tells PDF viewers to regenerate appearance streams from field values
+        {
+            use pdf::object::Catalog;
+            
+            let old_catalog = self.file.get_root();
+            let catalog_ref = self.file.trailer.root.get_ref();
+            
+            // Build a new Catalog with updated forms
+            let mut updated_forms = old_catalog.forms.clone();
+            if let Some(ref mut forms) = updated_forms {
+                forms.need_appearences = true;
+            }
+            
+            let updated_catalog = Catalog {
+                version: old_catalog.version.clone(),
+                pages: old_catalog.pages.clone(),
+                page_labels: None, // Don't copy page_labels as it doesn't implement Clone
+                names: old_catalog.names.clone(),
+                dests: old_catalog.dests.clone(),
+                outlines: None, // Don't copy outlines as it doesn't implement Clone
+                forms: updated_forms,
+                metadata: old_catalog.metadata.clone(),
+                struct_tree_root: None, // Don't copy struct_tree_root as it doesn't implement Clone
+            };
+            
+            self.file.update(catalog_ref.get_inner(), updated_catalog)?;
+        }
         
         // Apply field updates
         for (field_ref, updated_field) in field_updates {
