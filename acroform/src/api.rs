@@ -4,6 +4,7 @@ use pdf::object::{FieldDictionary, FieldType, RcRef, Updater, Annot};
 use pdf::primitive::{Primitive, PdfString, Dictionary};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::field::{FieldDictionaryExt, InteractiveFormDictionaryExt};
 
@@ -262,18 +263,25 @@ impl AcroFormDocument {
                     field: "AcroForm".into() 
                 })?;
             
-            // Find fields to update
+            // Find fields to update and collect field references for appearance generation
             let resolver = self.file.resolver();
+            let mut field_refs_to_update = Vec::new();
+            
             for (name, value) in &values {
                 if let Some(field) = forms.find_field_by_name(&name, &resolver)? {
                     let field_ref = field.get_ref();
                     let mut updated_field = (*field).clone();
                     updated_field.value = value.to_primitive();
                     field_updates.push((field_ref.get_inner(), updated_field));
+                    
+                    // Store field reference and value for appearance generation
+                    field_refs_to_update.push((field_ref.get_inner(), field.clone(), value.clone()));
                 }
             }
             
-            // Also update page annotations that represent the same fields
+            // Update page annotations that represent the same fields
+            // Widget annotations can be the field itself (when field and widget are merged)
+            // or can be separate annotation objects
             for page_rc in self.file.pages() {
                 let page = page_rc?;
                 let annots = page.annotations.load(&resolver)?;
@@ -281,15 +289,15 @@ impl AcroFormDocument {
                 for annot_ref in annots.data().iter() {
                     let annot = annot_ref.data();
                     
-                    // Check if this annotation has a field name (T key)
-                    if let Some(Primitive::String(ref field_name)) = annot.other.get("T") {
-                        let field_name_str = field_name.to_string_lossy().to_string();
+                    // Check if this annotation references one of our updated fields
+                    if let Some(annot_ref_val) = annot_ref.as_ref() {
+                        let annot_plain_ref = annot_ref_val.get_inner();
+                        let mut matched = false;
                         
-                        // Check if we're updating this field
-                        if let Some(value) = values.get(&field_name_str) {
-                            // Get the annotation reference if it's an indirect reference
-                            if let Some(annot_ref_val) = annot_ref.as_ref() {
-                                // Clone the annotation and update its value in the other dictionary
+                        // Check if this annotation is one of the fields we're updating (merged case)
+                        for (field_plain_ref, field, value) in &field_refs_to_update {
+                            if annot_plain_ref == *field_plain_ref {
+                                // This annotation IS the field (merged widget/field)
                                 let mut updated_annot = (**annot).clone();
                                 let mut new_other = Dictionary::new();
                                 
@@ -302,7 +310,52 @@ impl AcroFormDocument {
                                 new_other.insert("V", value.to_primitive());
                                 updated_annot.other = new_other;
                                 
-                                annotation_updates.push((annot_ref_val.get_inner(), updated_annot));
+                                // Generate appearance stream for the field
+                                if let Some(appearance_streams) = crate::appearance::generate_appearance_stream(field, value, &resolver)? {
+                                    updated_annot.appearance_streams = Some(pdf::object::MaybeRef::Direct(Arc::new(appearance_streams)));
+                                }
+                                
+                                annotation_updates.push((annot_plain_ref, updated_annot));
+                                matched = true;
+                                break;
+                            }
+                        }
+                        
+                        // If not matched as merged field/widget, check if it's a separate widget
+                        // that should be updated based on its local name or full path
+                        if !matched {
+                            if let Some(Primitive::String(ref field_name)) = annot.other.get("T") {
+                                let field_name_str = field_name.to_string_lossy().to_string();
+                                
+                                // Check if we're updating a field with this name (could be local or full path)
+                                for (name, value) in &values {
+                                    // Match if the name ends with the field name (for full paths)
+                                    // or if it's an exact match (for local names)
+                                    if name == &field_name_str || name.ends_with(&format!(".{}", field_name_str)) || name.ends_with(&field_name_str) {
+                                        // Update this annotation
+                                        let mut updated_annot = (**annot).clone();
+                                        let mut new_other = Dictionary::new();
+                                        
+                                        // Copy all existing entries
+                                        for (key, val) in &annot.other {
+                                            new_other.insert(key.clone(), val.clone());
+                                        }
+                                        
+                                        // Update the value
+                                        new_other.insert("V", value.to_primitive());
+                                        updated_annot.other = new_other;
+                                        
+                                        // Generate appearance stream for the field if we can find it
+                                        if let Some(field) = forms.find_field_by_name(name, &resolver)? {
+                                            if let Some(appearance_streams) = crate::appearance::generate_appearance_stream(&field, value, &resolver)? {
+                                                updated_annot.appearance_streams = Some(pdf::object::MaybeRef::Direct(Arc::new(appearance_streams)));
+                                            }
+                                        }
+                                        
+                                        annotation_updates.push((annot_plain_ref, updated_annot));
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
