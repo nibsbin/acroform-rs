@@ -61,6 +61,7 @@ resolved for you, even in forms with nested field hierarchies.
 
 mod field;
 mod api;
+mod appearance;
 
 pub use api::{AcroFormDocument, FormField, FieldValue};
 pub use field::{FieldDictionaryExt, InteractiveFormDictionaryExt};

@@ -4,6 +4,7 @@ use pdf::object::{FieldDictionary, FieldType, RcRef, Updater, Annot};
 use pdf::primitive::{Primitive, PdfString, Dictionary};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::field::{FieldDictionaryExt, InteractiveFormDictionaryExt};
 
@@ -301,6 +302,14 @@ impl AcroFormDocument {
                                 // Update the value
                                 new_other.insert("V", value.to_primitive());
                                 updated_annot.other = new_other;
+                                
+                                // Generate appearance stream for the field
+                                // We need to get the field to generate the appearance stream
+                                if let Some(field) = forms.find_field_by_name(&field_name_str, &resolver)? {
+                                    if let Some(appearance_streams) = crate::appearance::generate_appearance_stream(&field, value, &resolver)? {
+                                        updated_annot.appearance_streams = Some(pdf::object::MaybeRef::Direct(Arc::new(appearance_streams)));
+                                    }
+                                }
                                 
                                 annotation_updates.push((annot_ref_val.get_inner(), updated_annot));
                             }
