@@ -382,7 +382,9 @@ where
         let r = match self.refs.get(old.id)? {
             XRef::Free { .. } => panic!(),
             XRef::Raw { gen_nr, .. } => PlainRef { id: old.id, gen: gen_nr },
-            XRef::Stream { .. } => return self.create(obj),
+            // For objects in compressed streams (PDF 1.5+), we need to extract them
+            // and write them as regular objects. Use generation 0 for these.
+            XRef::Stream { .. } => PlainRef { id: old.id, gen: 0 },
             XRef::Promised => PlainRef { id: old.id, gen: 0 },
             XRef::Invalid => panic!()
         };
