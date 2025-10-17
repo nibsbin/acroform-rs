@@ -225,3 +225,31 @@ The library correctly uses UTF-16BE encoding for the value.
 The issue is **not a bug in the library's value-setting logic**, but rather a **missing feature**: appearance stream management. The library successfully updates field values, but doesn't handle the visual representation that most PDF viewers (especially browsers) rely on for display.
 
 To make filled PDFs work reliably across all viewers, the library needs to implement appearance stream regeneration or at minimum set the `/NeedAppearances` flag and remove outdated appearance streams.
+
+## Quick Reference: qpdf Investigation Commands
+
+```bash
+# Generate the filled PDF
+cargo run --example simple_fill
+
+# Check PDF structure and validity
+qpdf --check /tmp/af8_filled.pdf
+
+# Get comprehensive JSON structure with warnings
+qpdf --json /tmp/af8_filled.pdf > filled_structure.json
+
+# Examine specific objects
+qpdf --show-object=248 /tmp/af8_filled.pdf          # Field object
+qpdf --show-object=110 /tmp/af8_filled.pdf          # Appearance dictionary
+qpdf --show-object=111 /tmp/af8_filled.pdf          # Appearance stream (compressed)
+qpdf --show-object=111 --filtered-stream-data /tmp/af8_filled.pdf  # Decompressed appearance
+
+# Check AcroForm structure
+qpdf --show-object=1024 /tmp/af8_filled.pdf         # Document catalog
+qpdf --show-object=1025 /tmp/af8_filled.pdf         # AcroForm dictionary
+
+# Verify field hierarchy
+qpdf --show-object=244 /tmp/af8_filled.pdf          # Root form field
+qpdf --show-object=245 /tmp/af8_filled.pdf          # Page1[0]
+qpdf --show-object=246 /tmp/af8_filled.pdf          # P[0]
+```
